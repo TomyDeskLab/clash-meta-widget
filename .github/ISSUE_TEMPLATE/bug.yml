@@ -1,0 +1,42 @@
+name: Bug report
+description: 报告可复现的问题；请勿提交密钥、订阅或完整操作 URL
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: checkboxes
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我没有在内容中附上订阅地址、API 密钥、节点服务器参数、状态快照或完整操作 URL
+          required: true
+  - type: input
+    attributes:
+      label: macOS 与 Mac 型号
+      placeholder: macOS 15.6, MacBook Air M2
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: ClashX Meta 版本
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: 组件尺寸
+      options: [小号, 中号, 不适用]
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 复现步骤与实际结果
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 脱敏后的日志
+      description: 请先删除节点服务器、订阅、密钥、ticket 和完整 clash-meta-switch URL。
