@@ -17,5 +17,5 @@ jobs:
         run: bash build.sh
       - name: Verify universal binaries
         run: |
-          lipo -verify_arch arm64 x86_64 "build/native/Build/Products/Release/Clash Meta Switch.app/Contents/MacOS/Clash Meta Switch"
-          lipo -verify_arch arm64 x86_64 "build/native/Build/Products/Release/Clash Meta Switch.app/Contents/PlugIns/MetaSwitch.appex/Contents/MacOS/MetaSwitch"
+          lipo "build/native/Build/Products/Release/Clash Meta Switch.app/Contents/MacOS/Clash Meta Switch" -verify_arch arm64 x86_64
+          lipo "build/native/Build/Products/Release/Clash Meta Switch.app/Contents/PlugIns/MetaSwitch.appex/Contents/MacOS/MetaSwitch" -verify_arch arm64 x86_64

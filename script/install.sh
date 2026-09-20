@@ -2,11 +2,18 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "$0")/.." && pwd)"
-if [[ "${1:-}" != "--skip-build" ]]; then
+build_kind="${1:-lite}"
+if [[ "$build_kind" == "--xcode" ]]; then
   bash "$project_dir/build.sh"
+  source_app="$project_dir/build/native/Build/Products/Release/Clash Meta Switch.app"
+elif [[ "$build_kind" == "--skip-build" ]]; then
+  source_app="$project_dir/build/lite/Clash Meta Switch.app"
+elif [[ "$build_kind" == "--skip-xcode-build" ]]; then
+  source_app="$project_dir/build/native/Build/Products/Release/Clash Meta Switch.app"
+else
+  bash "$project_dir/build-lite.sh"
+  source_app="$project_dir/build/lite/Clash Meta Switch.app"
 fi
-
-source_app="$project_dir/build/native/Build/Products/Release/Clash Meta Switch.app"
 target_app="/Applications/Clash Meta Switch.app"
 if [[ ! -d "$source_app" ]]; then
   echo "Build product not found: $source_app" >&2

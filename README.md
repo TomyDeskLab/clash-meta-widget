@@ -13,13 +13,20 @@
 
 ## 安装
 
-目前建议从源码构建，因为公开下载的未公证二进制会触发 macOS Gatekeeper。需要安装 Xcode 和 Python 3。
+最省事的方式是从 [GitHub Releases](https://github.com/YL-SSSSu/clash-meta-widget/releases) 下载预编译 ZIP，不需要 Xcode。解压后把 App 移到“应用程序”。该包使用本机临时签名，没有 Apple Developer ID 公证；首次运行时 macOS 会显示“无法验证开发者”，请在“系统设置 → 隐私与安全性”中确认来源后选择“仍要打开”。项目不建议用 `xattr` 删除隔离属性。
+
+也可以从源码构建。完整 Xcode 不是必需的，只需安装体积较小的 Apple Command Line Tools：
+
+```bash
+xcode-select --install
+```
+
+安装完成后：
 
 ```bash
 git clone https://github.com/YL-SSSSu/clash-meta-widget.git
 cd clash-meta-widget
-bash build.sh
-bash script/install.sh --skip-build
+bash script/install.sh
 ```
 
 安装脚本把应用放入 `/Applications/Clash Meta Switch.app`。若已安装旧版，会先把旧版移入废纸篓并保留带时间的文件名，不会直接删除，也避免系统同时发现两个相同的小组件扩展。
@@ -37,6 +44,14 @@ bash script/install.sh --skip-build
 
 ## 构建与验证
 
+不使用 Xcode，只使用 Command Line Tools：
+
+```bash
+bash build-lite.sh
+```
+
+如果已经安装完整 Xcode，也可以走 Xcode 工程构建：
+
 ```bash
 bash build.sh
 ```
@@ -48,13 +63,16 @@ bash build.sh
 3. 验证代码签名结构；
 4. 运行不会修改网络设置的安全与代理状态检查。
 
-产物位于：
+两种产物分别位于：
 
 ```text
 build/native/Build/Products/Release/Clash Meta Switch.app
+build/lite/Clash Meta Switch.app
 ```
 
-本项目仅使用 Apple 系统框架，没有 Swift Package、CocoaPods、下载型构建步骤或第三方二进制依赖。
+本项目仅使用 Apple 系统框架，没有 Swift Package、CocoaPods、下载型构建步骤或第三方二进制依赖。`build-lite.sh` 已在 `DEVELOPER_DIR=/Library/Developer/CommandLineTools` 的工具链下验证，不调用 `xcodebuild`。
+
+维护者可执行 `bash script/package-release.sh` 生成 ZIP 和 SHA-256 校验文件。
 
 `docs/github-actions-build.yml` 提供了最小 GitHub Actions 模板。仓库维护者确认工作流权限和账单设置后，可将它复制到 `.github/workflows/build.yml` 启用；默认不自动运行第三方托管构建。
 
