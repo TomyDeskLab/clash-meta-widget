@@ -12,6 +12,10 @@ if [[ ! -x "$swiftc" || ! -d "$sdk" ]]; then
   exit 1
 fi
 
+# Keep compiler subprocesses and Apple's /usr/bin shims on the same toolchain.
+# This does not change the user's global xcode-select setting.
+export DEVELOPER_DIR="$developer_dir"
+
 build_root="$project_dir/build/lite"
 case "$build_root" in
   "$project_dir"/build/lite) ;;
