@@ -11,9 +11,9 @@ check(Bridge.validates(url, snapshot: snapshot, now: now), "valid ticket")
 for attack in ["clash-meta-switch://apply/forged", "https://apply/" + ticket, "clash-meta-switch://other/" + ticket, url.absoluteString + "?value=false", url.absoluteString + "#fragment", "clash-meta-switch://user@apply/" + ticket, "clash-meta-switch://apply:80/" + ticket] {
     check(!Bridge.validates(URL(string: attack)!, snapshot: snapshot, now: now), "reject altered URL")
 }
-check(!Bridge.validates(url, snapshot: snapshot, now: now.addingTimeInterval(31)), "reject expiration")
+check(Bridge.validates(url, snapshot: snapshot, now: now.addingTimeInterval(864000)), "cached card survives timeline delay")
 var rotated = snapshot; rotated.ticket = try Bridge.randomTicket()
-check(!Bridge.validates(url, snapshot: rotated), "reject replay after consumption")
+check(!Bridge.validates(url, snapshot: rotated), "explicit credential revocation")
 var stopped = snapshot; stopped.running = false
 check(!Bridge.validates(url, snapshot: stopped), "reject stopped core")
 var foreign = snapshot; foreign.foreignProxy = true
@@ -59,4 +59,16 @@ check(!Bridge.validates(URL(string: url.absoluteString + "/")!, snapshot: snapsh
 check(!Bridge.validates(URL(string: url.absoluteString.replacingOccurrences(of: "apply/", with: "apply//"))!, snapshot: snapshot), "reject doubled path slash")
 check(AppSettings.validPort(1) == 1 && AppSettings.validPort(65535) == 65535, "valid port bounds")
 check(AppSettings.validPort(0) == nil && AppSettings.validPort(65536) == nil, "invalid port bounds")
+var refreshed = nodes
+refreshed.enabled.toggle()
+refreshed.targetEnabled.toggle()
+refreshed.mode = "global"
+refreshed.date = now.addingTimeInterval(864000)
+check(Bridge.validates(url, snapshot: refreshed), "same power link works after state refresh")
+check(Bridge.validates(nodes.modeURL("rule")!, snapshot: refreshed), "same mode link works after state refresh")
+for step in [-1, 1] {
+    check(Bridge.validates(nodes.stepURL(step)!, snapshot: refreshed), "relative node link survives selection refresh")
+}
+check(nodes.stepURL(0) == nil, "invalid node step rejected")
+check(!Bridge.validates(URL(string: "clash-meta-switch://next/" + ticket)!, snapshot: nodes), "power token cannot step nodes")
 print("Passed \(checks) security and proxy-state checks; no system settings modified.")

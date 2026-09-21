@@ -17,6 +17,8 @@ import AppKit
     private var loadedCore = false
     private var coreOnline = false
     private var mode: String?
+    private var actionError: String?
+    private var lastAction = Date.distantPast
     var groups: [String] { proxies.keys.filter { proxies[$0]?.type == "Selector" }.sorted() }
     var options: [String] {
         (proxies[selectedGroup]?.all ?? []).filter { search.isEmpty || $0.localizedCaseInsensitiveContains(search) }
@@ -43,16 +45,16 @@ import AppKit
         let currentSelection = loadedCore ? proxies[selectedGroup]?.now : old?.selection
         let choices = loadedCore ? (proxies[selectedGroup]?.all ?? []) : old?.nodeOptions
         let changed = old?.enabled != state.enabled || old?.foreignProxy != state.foreignProxy || old?.running != ProxyControl.isRunning || old?.mode != currentMode || old?.node != currentNode || old?.group != currentGroup || old?.coreOnline != online || old?.nodeOptions != choices || old?.selection != currentSelection
-        let rotate = force || changed || old == nil || old?.nodeTicket == nil || (old?.expires.timeIntervalSinceNow ?? 0) < 3600
         var modeTickets = old?.modeTickets ?? [:]
-        if rotate { for name in ["rule", "global", "direct"] { modeTickets[name] = try Bridge.randomTicket() } }
+        for name in ["rule", "global", "direct"] where modeTickets[name] == nil { modeTickets[name] = try Bridge.randomTicket() }
         let current = Snapshot(date: Date(), enabled: state.enabled, foreignProxy: state.foreignProxy,
-                               running: ProxyControl.isRunning, ticket: rotate ? try Bridge.randomTicket() : old!.ticket,
-                               expires: rotate ? Date().addingTimeInterval(86400) : old!.expires,
+                               running: ProxyControl.isRunning, ticket: try old?.ticket ?? Bridge.randomTicket(),
+                               expires: Date.distantFuture,
                                targetEnabled: !state.enabled, mode: currentMode, node: currentNode, group: currentGroup,
                                coreOnline: online, modeTickets: modeTickets, nodeOptions: choices,
-                               nodeTicket: rotate ? try Bridge.randomTicket() : old?.nodeTicket, selection: currentSelection)
-        if rotate || Date().timeIntervalSince(old!.date) > 300 {
+                               nodeTicket: try old?.nodeTicket ?? Bridge.randomTicket(), selection: currentSelection,
+                               actionError: actionError)
+        if force || changed || old == nil || old?.actionError != actionError || Date().timeIntervalSince(old!.date) > 300 {
             try Bridge.write(current)
             WidgetCenter.shared.reloadAllTimelines()
         }
@@ -85,20 +87,28 @@ import AppKit
         guard !state.foreignProxy else { throw SwitchError.otherProxy }
     }
     func apply(_ url: URL) async {
-        guard !busy else { return }
+        guard !busy, Date().timeIntervalSince(lastAction) > 0.8 else { return }
         busy = true
         defer { busy = false }
         while refreshing { try? await Task.sleep(for: .milliseconds(50)) }
         do {
             guard let prior = Bridge.read(), Bridge.validates(url, snapshot: prior) else { throw BridgeError.expired }
             try checkLocalState()
-            // Consume every capability before awaiting or mutating state.
-            var consumed = prior
-            consumed.ticket = try Bridge.randomTicket()
-            for name in ["rule", "global", "direct"] { consumed.modeTickets?[name] = try Bridge.randomTicket() }
-            consumed.nodeTicket = try Bridge.randomTicket()
-            try Bridge.write(consumed)
-            if url.host == "apply" { try await ProxyControl.setEnabled(prior.targetEnabled) }
+            lastAction = Date()
+            actionError = nil
+            // Re-read actual state: a cached desktop card is not a target-state command.
+            if url.host == "apply" {
+                guard let state = ProxyState.read() else { throw SwitchError.unknownState }
+                try await ProxyControl.setEnabled(!state.enabled)
+            }
+            else if url.host == "previous" || url.host == "next" {
+                try await loadCore()
+                guard let selector = proxies[selectedGroup], selector.type == "Selector",
+                      let choices = selector.all, !choices.isEmpty,
+                      let index = choices.firstIndex(of: selector.now ?? "") else { throw CoreError.invalidSelection }
+                let offset = url.host == "previous" ? -1 : 1
+                try await CoreAPI.setNode(choices[(index + offset + choices.count) % choices.count], group: selectedGroup)
+            }
             else if url.host == "node", let node = Bridge.nodeName(from: url, snapshot: prior), let group = prior.group {
                 try await CoreAPI.setNode(node, group: group)
             }
@@ -108,8 +118,8 @@ import AppKit
             message = "已确认切换成功，桌面状态由系统刷新。"
         } catch {
             message = error.localizedDescription
+            actionError = message
             try? publish(force: true)
-            Delegate.shared?.showWindow()
         }
     }
     func selectNode(_ node: String) async {
@@ -219,19 +229,22 @@ struct SettingsView: View {
             Task { @MainActor in await Controller.shared.refresh() }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            if !self.handledURL { self.showWindow() }
+            if CommandLine.arguments.contains("--settings") { self.showWindow() }
             Task { await Controller.shared.refresh() }
         }
     }
     func application(_ application: NSApplication, open urls: [URL]) {
         guard urls.count == 1, let url = urls.first, url.scheme == "clash-meta-switch" else { return }
         handledURL = true
-        if url.absoluteString == "clash-meta-switch://controls" {
+        if url.absoluteString == "clash-meta-switch://settings" {
+            // This explicit settings route is never used by a widget button.
             showWindow()
+            Task { await Controller.shared.refresh(reportError: true) }
+        } else if url.absoluteString == "clash-meta-switch://controls" {
             Task { await Controller.shared.refresh(reportError: true) }
         } else { Task { await Controller.shared.apply(url) } }
     }
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showWindow(); return false }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { false }
     func showWindow() {
         if window == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 474, height: 610), styleMask: [.titled, .closable], backing: .buffered, defer: false)

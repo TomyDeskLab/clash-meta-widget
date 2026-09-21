@@ -1,4 +1,6 @@
-首个公开预览版。下载 ZIP、解压并移入“应用程序”即可使用，不需要安装 Xcode。
+> **已知故障，暂不推荐安装或分享此版本。** 用户实际使用已确认：构建 7 的旧卡片链接可能失效，点击时反复打开管理窗口。此前通过的是宿主 URL 入口测试，未覆盖桌面缓存卡片。构建 8 正在本机验收；此页面 ZIP 尚未更新，勿将旧包当作已修复版本。
+
+以下为首个公开预览版的原始说明。下载包不需要安装 Xcode。
 
 [不用 Xcode 的分步安装教程](https://github.com/YL-SSSSu/clash-meta-widget/blob/main/docs/安装教程.md) · [两种安装方式的测试报告](https://github.com/YL-SSSSu/clash-meta-widget/blob/main/docs/TEST_REPORT.md)
 

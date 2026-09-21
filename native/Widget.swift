@@ -20,7 +20,7 @@ struct SwitchView: View {
         guard let snapshot = entry.snapshot else { return "请打开应用初始化" }
         if !snapshot.running { return "ClashX Meta 未运行" }
         if snapshot.foreignProxy { return "检测到其他代理" }
-        if snapshot.expires < Date() { return "状态待刷新" }
+        if snapshot.actionError != nil { return "操作未完成，请查看提示" }
         return snapshot.enabled ? "系统代理已开启" : "系统代理已关闭"
     }
     var power: some View {
@@ -53,17 +53,17 @@ struct SwitchView: View {
             }
             if family == .systemMedium {
                 HStack(spacing: 8) {
-                    if let previous = adjacentNode(-1), let url = entry.snapshot?.nodeURL(previous) {
+                    if let previous = adjacentNode(-1), let url = entry.snapshot?.stepURL(-1) {
                         Link(destination: url) { Image(systemName: "chevron.left").frame(width: 26, height: 26).background(.secondary.opacity(0.1), in: Circle()) }
                             .accessibilityLabel("上一个节点：\(previous)")
                     }
                     Text(entry.snapshot?.node ?? "节点不可用").font(.system(size: 12, weight: .medium)).lineLimit(1).frame(maxWidth: .infinity)
-                    if let next = adjacentNode(1), let url = entry.snapshot?.nodeURL(next) {
+                    if let next = adjacentNode(1), let url = entry.snapshot?.stepURL(1) {
                         Link(destination: url) { Image(systemName: "chevron.right").frame(width: 26, height: 26).background(.secondary.opacity(0.1), in: Circle()) }
                             .accessibilityLabel("下一个节点：\(next)")
                     }
                 }.foregroundStyle(.primary)
-                Text(entry.snapshot?.coreOnline == true ? "Meta · 这台 Mac" : "Meta 控制接口未连接").font(.system(size: 9)).foregroundStyle(.secondary)
+                Text(entry.snapshot?.actionError ?? (entry.snapshot?.coreOnline == true ? "Meta · 这台 Mac" : "Meta 控制接口未连接")).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(2)
                 Spacer(minLength: 0)
                 HStack(spacing: 6) {
                     ForEach(["rule", "global", "direct"], id: \.self) { mode in
@@ -79,7 +79,7 @@ struct SwitchView: View {
                     if let date = entry.snapshot?.date { Text(date, style: .time).font(.system(size: 9)).foregroundStyle(.secondary) }
                 }
             } else {
-                Text(entry.snapshot?.node ?? "Meta · 这台 Mac").font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                Text(entry.snapshot?.actionError ?? entry.snapshot?.node ?? "Meta · 这台 Mac").font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(2)
                 Spacer(minLength: 0)
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 3) {

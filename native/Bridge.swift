@@ -18,7 +18,9 @@ struct Snapshot: Codable {
     var nodeOptions: [String]? = nil
     var nodeTicket: String? = nil
     var selection: String? = nil
-    var canAct: Bool { running && !foreignProxy && expires > Date() }
+    var actionError: String? = nil
+    // WidgetKit may retain a rendered card for hours. Its links must survive refreshes.
+    var canAct: Bool { running && !foreignProxy }
     var actionURL: URL? {
         guard canAct else { return nil }
         return URL(string: "clash-meta-switch://apply/" + ticket)
@@ -31,6 +33,10 @@ struct Snapshot: Codable {
         guard canAct, coreOnline == true, nodeOptions?.contains(name) == true, let token = nodeTicket else { return nil }
         let encoded = Data(name.utf8).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
         return URL(string: "clash-meta-switch://node/\(token)/\(encoded)")
+    }
+    func stepURL(_ offset: Int) -> URL? {
+        guard canAct, coreOnline == true, let token = nodeTicket, [-1, 1].contains(offset) else { return nil }
+        return URL(string: "clash-meta-switch://\(offset < 0 ? "previous" : "next")/\(token)")
     }
 }
 
@@ -53,14 +59,14 @@ enum Bridge {
     static func validates(_ url: URL, snapshot: Snapshot, now: Date = Date()) -> Bool {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme == "clash-meta-switch", let action = components.host,
-              ["apply", "rule", "global", "direct", "node"].contains(action),
+              ["apply", "rule", "global", "direct", "node", "previous", "next"].contains(action),
               components.user == nil, components.password == nil, components.port == nil,
               components.query == nil, components.fragment == nil,
-              snapshot.expires > now, snapshot.running, !snapshot.foreignProxy else { return false }
+              snapshot.running, !snapshot.foreignProxy else { return false }
         let parts = components.path.split(separator: "/", omittingEmptySubsequences: true)
         guard action == "apply" || snapshot.coreOnline == true else { return false }
         let token = parts.first.map(String.init) ?? ""
-        let expectedValue = action == "apply" ? snapshot.ticket : (action == "node" ? snapshot.nodeTicket ?? "" : snapshot.modeTickets?[action] ?? "")
+        let expectedValue = action == "apply" ? snapshot.ticket : (["node", "previous", "next"].contains(action) ? snapshot.nodeTicket ?? "" : snapshot.modeTickets?[action] ?? "")
         let candidate = Array(token.utf8), expected = Array(expectedValue.utf8)
         guard components.path == "/" + parts.joined(separator: "/"), candidate.count == 64, expected.count == 64,
               (action == "node" ? parts.count == 2 && nodeName(from: url, snapshot: snapshot) != nil : parts.count == 1) else { return false }
@@ -95,7 +101,7 @@ enum BridgeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .storage: "无法保存组件状态；未更改代理。"
-        case .expired: "组件画面已过期，已请求刷新。请稍后点按更新后的开关。"
+        case .expired: "组件链接无效，请移除旧卡片后重新添加；未更改代理。"
         }
     }
 }
