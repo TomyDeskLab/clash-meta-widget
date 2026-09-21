@@ -2,7 +2,7 @@
 
 一个放在 macOS 桌面上的原生 WidgetKit 小组件，用来控制已经运行的 ClashX Meta。
 
-> 2026-09-21 更新：公开下载的 preview.1（构建 7）已确认有旧卡片点击失效、反复弹窗的问题，暂不推荐安装或继续分享。构建 8 修正了缓存链接和弹窗逻辑，已在本机安装并通过重复操作测试；桌面实际点按仍待验收，尚未发布新 ZIP。详见 [修复记录](./docs/build8修复记录.md)。
+> 2026-09-21 更新：[preview.2（构建 10）提供成品安装包](https://github.com/YL-SSSSu/clash-meta-widget/releases/tag/v1.0.0-preview.2)，无需 Xcode。包括缓存点击与弹窗修复、手动设置入口及节点延迟测速。旧 preview.1（构建 7）有已知故障，请勿继续安装。新包仍为预览版，完整验证范围见发布说明。
 
 - 小号：开启或关闭系统代理。
 - 中号：开启或关闭系统代理、切换上一个／下一个节点、切换规则／全局／直连模式。
@@ -17,7 +17,7 @@
 
 第一次安装建议看 [不用 Xcode 的分步教程](./docs/安装教程.md)。两种路线的验证结果见 [测试报告](./docs/TEST_REPORT.md)。
 
-待修复包发布后，可从 [GitHub Releases](https://github.com/YL-SSSSu/clash-meta-widget/releases) 下载预编译 ZIP，无需 Xcode；当前 preview.1 存在上述故障，不推荐安装。预览包使用本机临时签名，没有 Apple Developer ID 公证；首次运行可能被 macOS 阻止。请核对来源后按系统安全设置处理，项目不建议用 `xattr` 删除隔离属性。
+从 [preview.2 下载页](https://github.com/YL-SSSSu/clash-meta-widget/releases/tag/v1.0.0-preview.2) 获取 `Clash-Meta-Widget-1.0-build10-macos-universal.zip`，解压后把 App 拖到“应用程序”即可；使用者无需 Xcode 或其他开发工具。预览包使用本机临时签名，没有 Apple Developer ID 公证；首次运行可能被 macOS 阻止。请核对来源后按系统安全设置处理，项目不建议用 `xattr` 删除隔离属性。
 
 也可以尝试从源码构建。以下 Command Line Tools 路线已验证编译与宿主入口，但构建 8 的桌面完整功能尚未按此路线复测，暂不将其视为已验收安装方法：
 
@@ -80,7 +80,7 @@ build/lite/Clash Meta Switch.app
 
 本项目仅使用 Apple 系统框架，没有 Swift Package、CocoaPods、下载型构建步骤或第三方二进制依赖。`build-lite.sh` 已在 `DEVELOPER_DIR=/Library/Developer/CommandLineTools` 的工具链下验证，不调用 `xcodebuild`。
 
-维护者可执行 `bash script/package-release.sh` 生成 ZIP 和 SHA-256 校验文件。
+维护者可执行 `bash script/package-release.sh` 用 Xcode 构建并生成 ZIP 和 SHA-256 校验文件；或用 `bash script/package-release.sh --app '/path/to/verified.app'` 打包已验证产物。此开发工具要求只针对维护者，不针对安装包使用者。输出按构建号分目录保存，不覆盖已有归档。
 
 `docs/github-actions-build.yml` 提供了最小 GitHub Actions 模板。仓库维护者确认工作流权限和账单设置后，可将它复制到 `.github/workflows/build.yml` 启用；默认不自动运行第三方托管构建。
 
