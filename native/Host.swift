@@ -11,7 +11,10 @@ import AppKit
     @Published var selectedGroup = UserDefaults.standard.string(forKey: "selectedGroup") ?? ""
     @Published var search = ""
     @Published var proxyPortText = String(AppSettings.proxyPort)
-    @Published var controlPortText = String(AppSettings.controlPort)
+    @Published var socksPortText = String(AppSettings.socksPort)
+    @Published var controlPortText = String(AppSettings.manualControlPort)
+    @Published var automaticPorts = AppSettings.automaticPorts
+    @Published var portSummary = "等待读取 Meta 运行端口…"
     @Published var apiSecret = AppSettings.apiSecret()
     @Published var delays: [String: DelayResult] = [:]
     @Published var testingNodes = Set<String>()
@@ -23,6 +26,7 @@ import AppKit
     private var coreOnline = false
     private var mode: String?
     private var actionError: String?
+    private var connectionFailed = false
     private var lastAction = Date.distantPast
     var groups: [String] { proxies.keys.filter { proxies[$0]?.type == "Selector" }.sorted() }
     var options: [String] {
@@ -67,6 +71,24 @@ import AppKit
         }
     }
     func cancelDelayTests() { delayTask?.cancel() }
+    func copyDiagnostics() {
+        let meta = NSRunningApplication.runningApplications(withBundleIdentifier: "com.metacubex.ClashX.meta").first
+        let version = meta?.bundleURL.flatMap { Bundle(url: $0)?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String } ?? "未运行或未知"
+        let report = """
+        Clash Meta Widget 诊断
+        组件构建：\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "未知")
+        macOS：\(ProcessInfo.processInfo.operatingSystemVersionString)
+        ClashX Meta：\(version)
+        端口模式：\(AppSettings.automaticPorts ? "自动" : "手动")
+        端口信息：\(portSummary)
+        控制接口可达：\(snapshot?.coreOnline == true ? "是" : "否")
+        当前代理：\(ProxyState.read()?.diagnosticSummary ?? "无法读取")
+        上次操作错误：\(snapshot?.actionError ?? "无")
+        """
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(report, forType: .string)
+        message = "已复制诊断：仅包含版本、代理开关、端口与错误；不含节点、订阅、密钥或操作链接。"
+    }
     func chooseGroup(_ name: String) {
         selectedGroup = name
         UserDefaults.standard.set(name, forKey: "selectedGroup")
@@ -79,7 +101,7 @@ import AppKit
         return name
     }
     func publish(force: Bool = false) throws {
-        guard let state = ProxyState.read() else { throw SwitchError.unknownState }
+        let state = ProxyState.read()
         let old = Bridge.read()
         let currentMode = loadedCore ? mode : old?.mode
         let currentNode = loadedCore ? displayedNode() : old?.node
@@ -87,26 +109,46 @@ import AppKit
         let currentGroup = loadedCore ? selectedGroup : old?.group
         let currentSelection = loadedCore ? proxies[selectedGroup]?.now : old?.selection
         let choices = loadedCore ? (proxies[selectedGroup]?.all ?? []) : old?.nodeOptions
-        let changed = old?.enabled != state.enabled || old?.foreignProxy != state.foreignProxy || old?.running != ProxyControl.isRunning || old?.mode != currentMode || old?.node != currentNode || old?.group != currentGroup || old?.coreOnline != online || old?.nodeOptions != choices || old?.selection != currentSelection
+        let changed = old?.enabled != state?.enabled || old?.foreignProxy != state?.foreignProxy || old?.stateKnown != (state != nil) || old?.running != ProxyControl.isRunning || old?.mode != currentMode || old?.node != currentNode || old?.group != currentGroup || old?.coreOnline != online || old?.nodeOptions != choices || old?.selection != currentSelection
         var modeTickets = old?.modeTickets ?? [:]
         for name in ["rule", "global", "direct"] where modeTickets[name] == nil { modeTickets[name] = try Bridge.randomTicket() }
-        let current = Snapshot(date: Date(), enabled: state.enabled, foreignProxy: state.foreignProxy,
+        let current = Snapshot(date: Date(), enabled: state?.enabled ?? false, foreignProxy: state?.foreignProxy ?? false,
                                running: ProxyControl.isRunning, ticket: try old?.ticket ?? Bridge.randomTicket(),
                                expires: Date.distantFuture,
-                               targetEnabled: !state.enabled, mode: currentMode, node: currentNode, group: currentGroup,
+                               targetEnabled: !(state?.enabled ?? false), mode: currentMode, node: currentNode, group: currentGroup,
                                coreOnline: online, modeTickets: modeTickets, nodeOptions: choices,
                                nodeTicket: try old?.nodeTicket ?? Bridge.randomTicket(), selection: currentSelection,
-                               actionError: actionError)
+                               actionError: actionError, stateKnown: state != nil)
         if force || changed || old == nil || old?.actionError != actionError || Date().timeIntervalSince(old!.date) > 300 {
             try Bridge.write(current)
             WidgetCenter.shared.reloadAllTimelines()
         }
         snapshot = current
     }
+    private func loadConnection() async throws -> CoreConfiguration {
+        if AppSettings.automaticPorts {
+            AppSettings.detectedControlPort = await MetaControllerDiscovery.discover()
+        }
+        do {
+            let config = try await CoreAPI.configuration()
+            if AppSettings.automaticPorts {
+                guard let ports = config.proxyPorts else { throw CoreError.unknownPorts }
+                AppSettings.detectedProxyPorts = ports
+            }
+            let source = AppSettings.automaticPorts ? (AppSettings.detectedControlPort == nil ? "备用控制接口" : "自动发现控制接口") : "手动控制接口"
+            portSummary = "\(AppSettings.proxyPorts?.summary ?? "端口未知") · \(source) \(AppSettings.controlPort)"
+            if connectionFailed { actionError = nil; connectionFailed = false }
+            return config
+        } catch {
+            AppSettings.detectedProxyPorts = nil
+            connectionFailed = true
+            portSummary = "读取失败 · 控制接口 \(AppSettings.controlPort)；请检查 Meta 或兼容设置。"
+            throw error
+        }
+    }
     private func loadCore() async throws {
-        async let newMode = CoreAPI.mode()
-        async let newProxies = CoreAPI.proxies()
-        let (m, p) = try await (newMode, newProxies)
+        let m = try await loadConnection().mode
+        let p = try await CoreAPI.proxies()
         mode = m; proxies = p; coreOnline = true; loadedCore = true
         if m == "global", p["GLOBAL"]?.type == "Selector" { selectedGroup = "GLOBAL" }
         else if !groups.contains(selectedGroup) || (m == "rule" && selectedGroup == "GLOBAL") {
@@ -120,6 +162,7 @@ import AppKit
         do { try await loadCore(); try publish() }
         catch {
             coreOnline = false; loadedCore = true
+            if AppSettings.automaticPorts && AppSettings.detectedProxyPorts == nil { actionError = error.localizedDescription }
             try? publish()
             if reportError { message = error.localizedDescription }
         }
@@ -135,7 +178,9 @@ import AppKit
         defer { busy = false }
         while refreshing { try? await Task.sleep(for: .milliseconds(50)) }
         do {
-            guard let prior = Bridge.read(), Bridge.validates(url, snapshot: prior) else { throw BridgeError.expired }
+            guard let prior = Bridge.read(), Bridge.authenticates(url, snapshot: prior) else { throw BridgeError.expired }
+            guard ProxyControl.isRunning else { throw SwitchError.notRunning }
+            if AppSettings.automaticPorts || url.host != "apply" { _ = try await loadConnection() }
             try checkLocalState()
             lastAction = Date()
             actionError = nil
@@ -170,6 +215,7 @@ import AppKit
         busy = true
         defer { busy = false }
         do {
+            _ = try await loadConnection()
             try checkLocalState()
             let group = selectedGroup
             try await CoreAPI.setNode(node, group: group)
@@ -180,14 +226,16 @@ import AppKit
     }
     func openAction(_ url: URL?) { if let url { NSWorkspace.shared.open(url) } }
     func saveConnectionSettings() async {
-        guard let proxy = Int(proxyPortText), let control = Int(controlPortText),
-              AppSettings.validPort(proxy) != nil, AppSettings.validPort(control) != nil else {
+        guard !busy, !refreshing else { return }
+        guard let proxy = Int(proxyPortText), let socks = Int(socksPortText), let control = Int(controlPortText),
+              AppSettings.validPort(proxy) != nil, AppSettings.validPort(socks) != nil, AppSettings.validPort(control) != nil else {
             message = CoreError.invalidSettings.localizedDescription
             return
         }
         do {
             try AppSettings.saveAPISecret(apiSecret)
-            AppSettings.savePorts(proxy: proxy, control: control)
+            AppSettings.automaticPorts = automaticPorts
+            AppSettings.savePorts(proxy: proxy, socks: socks, control: control)
             delays.removeAll()
             loadedCore = false
             message = "设置已保存；控制接口密钥仅保存在 macOS 钥匙串。"
@@ -267,16 +315,22 @@ struct SettingsView: View {
             }
             Text("规则模式按规则分流；全局模式使用 GLOBAL 策略组；直连模式不使用代理。系统代理开关不控制 TUN。").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             DisclosureGroup("兼容设置") {
+                Toggle("自动读取 Meta 端口（推荐）", isOn: $controller.automaticPorts)
+                Text(controller.portSummary).font(.caption).textSelection(.enabled)
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                    GridRow { Text("系统代理端口"); TextField("7890", text: $controller.proxyPortText).frame(width: 90) }
-                    GridRow { Text("控制接口端口"); TextField("9090", text: $controller.controlPortText).frame(width: 90) }
+                    if !controller.automaticPorts {
+                        GridRow { Text("HTTP/HTTPS 端口"); TextField("7890", text: $controller.proxyPortText).frame(width: 90) }
+                        GridRow { Text("SOCKS 端口"); TextField("7890", text: $controller.socksPortText).frame(width: 90) }
+                    }
+                    GridRow { Text(controller.automaticPorts ? "备用控制接口端口" : "控制接口端口"); TextField("9090", text: $controller.controlPortText).frame(width: 90) }
                     GridRow { Text("接口密钥"); SecureField("未设置", text: $controller.apiSecret).frame(width: 210) }
                 }.textFieldStyle(.roundedBorder)
-                Button("保存兼容设置") { Task { await controller.saveConnectionSettings() } }.disabled(controller.testingDelays)
+                Button("保存并重新读取") { Task { await controller.saveConnectionSettings() } }.disabled(controller.testingDelays || controller.busy)
                 Text("控制地址固定为本机 127.0.0.1；密钥只存入钥匙串。留空表示接口未设置密钥。").font(.caption).foregroundStyle(.secondary)
             }.font(.callout)
             HStack {
                 Button("刷新") { Task { await controller.refresh(reportError: true) } }.disabled(controller.busy)
+                Button("复制诊断") { controller.copyDiagnostics() }
                 Spacer()
                 Button("关闭窗口") { Delegate.shared?.window?.close() }
             }

@@ -19,6 +19,7 @@ struct SwitchView: View {
     var status: String {
         guard let snapshot = entry.snapshot else { return "请打开应用初始化" }
         if !snapshot.running { return "ClashX Meta 未运行" }
+        if snapshot.stateKnown == false { return "端口读取失败，请查看设置" }
         if snapshot.foreignProxy { return "检测到其他代理" }
         if snapshot.actionError != nil { return "操作未完成，请查看提示" }
         return snapshot.enabled ? "系统代理已开启" : "系统代理已关闭"

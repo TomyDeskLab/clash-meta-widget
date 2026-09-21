@@ -19,8 +19,9 @@ struct Snapshot: Codable {
     var nodeTicket: String? = nil
     var selection: String? = nil
     var actionError: String? = nil
+    var stateKnown: Bool? = nil
     // WidgetKit may retain a rendered card for hours. Its links must survive refreshes.
-    var canAct: Bool { running && !foreignProxy }
+    var canAct: Bool { running && !foreignProxy && stateKnown != false }
     var actionURL: URL? {
         guard canAct else { return nil }
         return URL(string: "clash-meta-switch://apply/" + ticket)
@@ -57,14 +58,17 @@ enum Bridge {
         return bytes.map { String(format: "%02x", $0) }.joined()
     }
     static func validates(_ url: URL, snapshot: Snapshot, now: Date = Date()) -> Bool {
+        guard snapshot.canAct, url.host == "apply" || snapshot.coreOnline == true else { return false }
+        return authenticates(url, snapshot: snapshot)
+    }
+    // Authenticate cached links separately from live state, which the host rechecks before mutation.
+    static func authenticates(_ url: URL, snapshot: Snapshot) -> Bool {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme == "clash-meta-switch", let action = components.host,
               ["apply", "rule", "global", "direct", "node", "previous", "next"].contains(action),
               components.user == nil, components.password == nil, components.port == nil,
-              components.query == nil, components.fragment == nil,
-              snapshot.running, !snapshot.foreignProxy else { return false }
+              components.query == nil, components.fragment == nil else { return false }
         let parts = components.path.split(separator: "/", omittingEmptySubsequences: true)
-        guard action == "apply" || snapshot.coreOnline == true else { return false }
         let token = parts.first.map(String.init) ?? ""
         let expectedValue = action == "apply" ? snapshot.ticket : (["node", "previous", "next"].contains(action) ? snapshot.nodeTicket ?? "" : snapshot.modeTickets?[action] ?? "")
         let candidate = Array(token.utf8), expected = Array(expectedValue.utf8)

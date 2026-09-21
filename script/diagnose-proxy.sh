@@ -24,7 +24,7 @@ app_version() {
 }
 echo "组件构建: $(app_version '/Applications/Clash Meta Switch.app' CFBundleVersion)"
 echo "Meta 版本: $(app_version '/Applications/ClashX Meta.app' CFBundleShortVersionString)"
-echo "组件配置的代理端口: $proxy_port（构建 10 对 HTTP/HTTPS/SOCKS 均使用此值）"
+echo "组件保存的备用代理端口: $proxy_port（构建 10 将其用于全部协议；构建 11 默认自动读取）"
 echo "本次检查的控制接口端口: $control_port"
 
 echo '--- macOS 当前系统代理 ---'

@@ -4,9 +4,9 @@
 
 为已经运行的 **ClashX Meta** 提供原生 WidgetKit 桌面小组件，支持手动节点管理和连接延迟测速。
 
-**[下载最新版安装包](https://github.com/TomyDeskLab/clash-meta-widget/releases/download/v1.0.0-preview.2/Clash-Meta-Widget-1.0-build10-macos-universal.zip)** · [安装教程](./docs/安装教程.md) · [发布页面](https://github.com/TomyDeskLab/clash-meta-widget/releases/tag/v1.0.0-preview.2)
+**[下载最新版安装包](https://github.com/TomyDeskLab/clash-meta-widget/releases/download/v1.0.0-preview.3/Clash-Meta-Widget-1.0-build11-macos-universal.zip)** · [安装教程](./docs/安装教程.md) · [发布页面](https://github.com/TomyDeskLab/clash-meta-widget/releases/tag/v1.0.0-preview.3)
 
-当前版本：**v1.0.0-preview.2 · 构建 10**。下载 ZIP 即可安装，**不需要 Xcode 或命令行开发工具**。
+当前版本：**v1.0.0-preview.3 · 构建 11**。下载 ZIP 即可安装，**不需要 Xcode 或命令行开发工具**。
 
 ## 能做什么
 
@@ -44,7 +44,7 @@
 | 系统 | macOS 14 或更新版本 |
 | 客户端 | ClashX Meta，应用标识 `com.metacubex.ClashX.meta` |
 | 架构 | 包含 Apple 芯片与 Intel；已在 Apple 芯片实测，Intel 实机待验证 |
-| 默认端口 | 系统代理 `7890`，控制接口 `9090`；可在兼容设置中修改 |
+| 端口 | 默认自动读取 Meta 当前的 HTTP、SOCKS、混合端口与本机控制接口；读取失败时可手动设置 |
 
 开关控制的是系统代理，不控制 TUN，也不负责启动或替换 Meta。控制地址固定为本机 `127.0.0.1`；可选接口密钥保存在 macOS 钥匙串。
 

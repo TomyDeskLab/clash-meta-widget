@@ -1,6 +1,6 @@
 # 开发与实现说明
 
-本文面向维护者。普通使用者直接[下载安装包](https://github.com/TomyDeskLab/clash-meta-widget/releases/tag/v1.0.0-preview.2)，不需要开发工具。
+本文面向维护者。普通使用者直接[下载安装包](https://github.com/TomyDeskLab/clash-meta-widget/releases/tag/v1.0.0-preview.3)，不需要开发工具。
 
 ## 构建与安装
 
@@ -59,6 +59,8 @@ flowchart LR
 | `native/ProxyState.swift` | 读取并检查系统代理 |
 | `tests/main.swift` | 输入与代理状态检查 |
 | `tests/delay-smoke.swift` | 自愿执行的真实测速检查 |
+| `tests/ports-smoke.swift` | 只读验证自动发现控制接口和运行端口 |
+| `script/check-auto-ports.py` | 自愿执行的真实端口变更、开关和恢复检查 |
 
 ## 参考与许可
 
