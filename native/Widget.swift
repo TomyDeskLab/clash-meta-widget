@@ -63,7 +63,17 @@ struct SwitchView: View {
                             .accessibilityLabel("下一个节点：\(next)")
                     }
                 }.foregroundStyle(.primary)
-                Text(entry.snapshot?.actionError ?? (entry.snapshot?.coreOnline == true ? "Meta · 这台 Mac" : "Meta 控制接口未连接")).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(2)
+                HStack(spacing: 8) {
+                    Text(entry.snapshot?.actionError ?? (entry.snapshot?.coreOnline == true ? "Meta · 这台 Mac" : "Meta 控制接口未连接"))
+                        .font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(2)
+                    Spacer(minLength: 0)
+                    Link(destination: URL(string: "clash-meta-switch://settings")!) {
+                        Label("设置", systemImage: "gearshape")
+                            .font(.system(size: 10)).padding(.horizontal, 6).padding(.vertical, 3)
+                            .contentShape(Rectangle())
+                    }.foregroundStyle(.primary)
+                        .accessibilityLabel("手动打开节点与模式设置")
+                }
                 Spacer(minLength: 0)
                 HStack(spacing: 6) {
                     ForEach(["rule", "global", "direct"], id: \.self) { mode in

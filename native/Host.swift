@@ -237,7 +237,7 @@ struct SettingsView: View {
         guard urls.count == 1, let url = urls.first, url.scheme == "clash-meta-switch" else { return }
         handledURL = true
         if url.absoluteString == "clash-meta-switch://settings" {
-            // This explicit settings route is never used by a widget button.
+            // Only the explicit Settings link opens a window; proxy actions stay silent.
             showWindow()
             Task { await Controller.shared.refresh(reportError: true) }
         } else if url.absoluteString == "clash-meta-switch://controls" {
