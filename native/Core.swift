@@ -38,7 +38,23 @@ enum AppSettings {
     }
 }
 
-struct ProxyItem: Decodable { let type: String; let now: String?; let all: [String]? }
+struct ProxyHistory: Decodable { let delay: Int; let time: String? }
+struct ProxyItem: Decodable {
+    let type: String
+    let now: String?
+    let all: [String]?
+    let history: [ProxyHistory]?
+}
+struct DelayResponse: Decodable { let delay: Int }
+enum DelayResult: Sendable {
+    case measured(Int), failed
+    var label: String {
+        switch self {
+        case .measured(let value): return "\(value) ms"
+        case .failed: return "超时/失败"
+        }
+    }
+}
 struct ProxyResponse: Decodable { let proxies: [String: ProxyItem] }
 struct CoreConfiguration: Decodable { let mode: String }
 enum CoreError: LocalizedError {
@@ -62,13 +78,17 @@ enum CoreAPI {
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
         return "proxies/" + (name.addingPercentEncoding(withAllowedCharacters: allowed) ?? "")
     }
-    private static func request(_ path: String, method: String = "GET", body: [String: String]? = nil) async throws -> Data {
+    private static func request(_ path: String, method: String = "GET", body: [String: String]? = nil,
+                                queryItems: [URLQueryItem] = [], timeout: TimeInterval = 3) async throws -> Data {
         let config = URLSessionConfiguration.ephemeral
         config.connectionProxyDictionary = [:]
-        config.timeoutIntervalForRequest = 3
+        config.timeoutIntervalForRequest = timeout
+        config.timeoutIntervalForResource = timeout + 1
         let session = URLSession(configuration: config, delegate: NoRedirect(), delegateQueue: nil)
         defer { session.invalidateAndCancel() }
-        var request = URLRequest(url: URL(string: "http://127.0.0.1:\(AppSettings.controlPort)/" + path)!)
+        var components = URLComponents(string: "http://127.0.0.1:\(AppSettings.controlPort)/" + path)!
+        if !queryItems.isEmpty { components.queryItems = queryItems }
+        var request = URLRequest(url: components.url!)
         request.httpMethod = method
         let secret = AppSettings.apiSecret()
         if !secret.isEmpty { request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization") }
@@ -81,6 +101,21 @@ enum CoreAPI {
     }
     static func mode() async throws -> String { try JSONDecoder().decode(CoreConfiguration.self, from: try await request("configs")).mode }
     static func proxies() async throws -> [String: ProxyItem] { try JSONDecoder().decode(ProxyResponse.self, from: try await request("proxies")).proxies }
+    static func delay(_ node: String) async throws -> Int {
+        guard let proxy = try await proxies()[node], !["Reject", "REJECT", "Pass", "PASS"].contains(proxy.type) else { throw CoreError.invalidSelection }
+        let data = try await request(groupPath(node) + "/delay", queryItems: [
+            URLQueryItem(name: "url", value: "https://www.gstatic.com/generate_204"),
+            URLQueryItem(name: "timeout", value: "5000")
+        ], timeout: 7)
+        let value = try JSONDecoder().decode(DelayResponse.self, from: data).delay
+        guard (1...65535).contains(value) else { throw CoreError.verification }
+        return value
+    }
+    static func measureDelay(_ node: String?) async -> (String, DelayResult)? {
+        guard let node, !Task.isCancelled else { return nil }
+        do { return (node, .measured(try await delay(node))) }
+        catch { return Task.isCancelled ? nil : (node, .failed) }
+    }
     static func setMode(_ mode: String) async throws {
         guard ["rule", "global", "direct"].contains(mode) else { throw CoreError.invalidSelection }
         _ = try await request("configs", method: "PATCH", body: ["mode": mode])

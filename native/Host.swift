@@ -13,6 +13,11 @@ import AppKit
     @Published var proxyPortText = String(AppSettings.proxyPort)
     @Published var controlPortText = String(AppSettings.controlPort)
     @Published var apiSecret = AppSettings.apiSecret()
+    @Published var delays: [String: DelayResult] = [:]
+    @Published var testingNodes = Set<String>()
+    @Published var delayProgress = ""
+    private var delayTask: Task<Void, Never>?
+    var testingDelays: Bool { delayTask != nil }
     private var refreshing = false
     private var loadedCore = false
     private var coreOnline = false
@@ -24,6 +29,44 @@ import AppKit
         (proxies[selectedGroup]?.all ?? []).filter { search.isEmpty || $0.localizedCaseInsensitiveContains(search) }
     }
     var selectedNode: String? { proxies[selectedGroup]?.now }
+    func canTest(_ node: String) -> Bool {
+        guard let proxy = proxies[node] else { return false }
+        return !["Reject", "REJECT", "Pass", "PASS"].contains(proxy.type)
+    }
+    func delayResult(_ node: String) -> DelayResult? {
+        if let result = delays[node] { return result }
+        guard let last = proxies[node]?.history?.last else { return nil }
+        return last.delay > 0 ? .measured(last.delay) : .failed
+    }
+    func startDelayTests(_ names: [String]) {
+        guard delayTask == nil, snapshot?.coreOnline == true else { return }
+        let names = Array(Set(names.filter { canTest($0) })).sorted()
+        guard !names.isEmpty else { return }
+        testingNodes = Set(names)
+        delayProgress = "测速 0/\(names.count)"
+        delayTask = Task {
+            var completed = 0
+            // Process bounded batches of three; cancellation propagates to all probes.
+            for start in stride(from: 0, to: names.count, by: 3) {
+                if Task.isCancelled { break }
+                async let first = CoreAPI.measureDelay(names[start])
+                async let second = CoreAPI.measureDelay(start + 1 < names.count ? names[start + 1] : nil)
+                async let third = CoreAPI.measureDelay(start + 2 < names.count ? names[start + 2] : nil)
+                let results = await [first, second, third]
+                if Task.isCancelled { break }
+                for case let (name, result)? in results {
+                    delays[name] = result
+                    testingNodes.remove(name)
+                    completed += 1
+                    delayProgress = "测速 \(completed)/\(names.count)"
+                }
+            }
+            delayProgress = Task.isCancelled ? "测速已停止" : "测速完成 · \(completed) 项"
+            testingNodes.removeAll()
+            delayTask = nil
+        }
+    }
+    func cancelDelayTests() { delayTask?.cancel() }
     func chooseGroup(_ name: String) {
         selectedGroup = name
         UserDefaults.standard.set(name, forKey: "selectedGroup")
@@ -145,6 +188,7 @@ import AppKit
         do {
             try AppSettings.saveAPISecret(apiSecret)
             AppSettings.savePorts(proxy: proxy, control: control)
+            delays.removeAll()
             loadedCore = false
             message = "设置已保存；控制接口密钥仅保存在 macOS 钥匙串。"
             await refresh(reportError: true)
@@ -180,20 +224,44 @@ struct SettingsView: View {
                     ForEach(controller.groups, id: \.self) { Text($0).tag($0) }
                 }.disabled(controller.busy)
                 TextField("搜索节点", text: $controller.search).textFieldStyle(.roundedBorder)
+                HStack {
+                    Text("连接延迟").font(.caption).foregroundStyle(.secondary)
+                    Text(controller.delayProgress).font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    if controller.testingDelays {
+                        Button("停止") { controller.cancelDelayTests() }
+                    } else {
+                        Button("测当前列表") { controller.startDelayTests(controller.options) }
+                            .disabled(controller.options.filter { controller.canTest($0) }.isEmpty)
+                    }
+                }
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 3) {
                         ForEach(controller.options, id: \.self) { node in
-                            Button { Task { await controller.selectNode(node) } } label: {
-                                HStack {
+                            HStack(spacing: 8) {
+                                Button { Task { await controller.selectNode(node) } } label: {
+                                    HStack {
                                     Image(systemName: controller.selectedNode == node ? "checkmark.circle.fill" : "circle").foregroundStyle(controller.selectedNode == node ? Color.accentColor : .secondary)
                                     Text(node).lineLimit(1)
                                     Spacer()
                                     if let type = controller.proxies[node]?.type, ["URLTest", "Fallback", "Selector"].contains(type) { Text("策略组").font(.caption).foregroundStyle(.secondary) }
-                                }.padding(.horizontal, 10).padding(.vertical, 7).contentShape(Rectangle())
-                            }.buttonStyle(.plain).disabled(controller.busy)
+                                    }.contentShape(Rectangle())
+                                }.buttonStyle(.plain).disabled(controller.busy)
+                                Button { controller.startDelayTests([node]) } label: {
+                                    Text(controller.testingNodes.contains(node) ? "测速中…" : controller.delayResult(node)?.label ?? "测速")
+                                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(delayColor(node)).frame(width: 78, alignment: .trailing)
+                                        .padding(.vertical, 4).contentShape(Rectangle())
+                                }.buttonStyle(.plain)
+                                    .disabled(controller.testingDelays || !controller.canTest(node))
+                                    .help("点击测试此节点到 Google 204 的连接延迟；不切换节点")
+                                    .accessibilityLabel("测速 \(node)，\(controller.delayResult(node)?.label ?? "未测试")")
+                            }.padding(.horizontal, 10).padding(.vertical, 5)
                         }
                     }
                 }.frame(height: 215)
+                Text("延迟单位 ms，点击数值可重测；打开时可显示 Meta 已有记录。")
+                    .font(.caption2).foregroundStyle(.secondary)
             } else {
                 Text("节点列表暂不可用，请确认 Meta 已运行后刷新。").foregroundStyle(.secondary).frame(height: 120)
             }
@@ -204,7 +272,7 @@ struct SettingsView: View {
                     GridRow { Text("控制接口端口"); TextField("9090", text: $controller.controlPortText).frame(width: 90) }
                     GridRow { Text("接口密钥"); SecureField("未设置", text: $controller.apiSecret).frame(width: 210) }
                 }.textFieldStyle(.roundedBorder)
-                Button("保存兼容设置") { Task { await controller.saveConnectionSettings() } }
+                Button("保存兼容设置") { Task { await controller.saveConnectionSettings() } }.disabled(controller.testingDelays)
                 Text("控制地址固定为本机 127.0.0.1；密钥只存入钥匙串。留空表示接口未设置密钥。").font(.caption).foregroundStyle(.secondary)
             }.font(.callout)
             HStack {
@@ -215,6 +283,14 @@ struct SettingsView: View {
         }.padding(22).frame(width: 430)
     }
     private func modeName(_ mode: String) -> String { ["rule": "规则", "global": "全局", "direct": "直连"][mode]! }
+    private func delayColor(_ node: String) -> Color {
+        if controller.testingNodes.contains(node) { return .secondary }
+        guard let result = controller.delayResult(node) else { return .secondary }
+        switch result {
+        case .measured(let value): return value < 200 ? .green : value < 500 ? .orange : .red
+        case .failed: return .red
+        }
+    }
 }
 
 @MainActor final class Delegate: NSObject, NSApplicationDelegate {
@@ -247,7 +323,7 @@ struct SettingsView: View {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { false }
     func showWindow() {
         if window == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 474, height: 610), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 474, height: 680), styleMask: [.titled, .closable], backing: .buffered, defer: false)
             w.title = "Clash Meta 节点与模式"; w.isReleasedWhenClosed = false
             w.contentView = NSHostingView(rootView: SettingsView())
             w.center(); window = w
