@@ -1,6 +1,6 @@
 # 开发与实现说明
 
-本文面向维护者。普通使用者直接[下载安装包](https://github.com/YL-SSSSu/clash-meta-widget/releases/tag/v1.0.0-preview.2)，不需要开发工具。
+本文面向维护者。普通使用者直接[下载安装包](https://github.com/TomyDeskLab/clash-meta-widget/releases/tag/v1.0.0-preview.2)，不需要开发工具。
 
 ## 构建与安装
 

@@ -15,7 +15,7 @@
 
 ## 安装提示
 
-当前为临时本地签名，**没有 Apple Developer ID 公证**，下载后首次启动可能被 macOS 阻止。核对来源后按系统提供的“隐私与安全性 → 仍要打开”处理；不要关闭系统安全保护。完整步骤见 [安装教程](https://github.com/YL-SSSSu/clash-meta-widget/blob/main/docs/安装教程.md)。
+当前为临时本地签名，**没有 Apple Developer ID 公证**，下载后首次启动可能被 macOS 阻止。核对来源后按系统提供的“隐私与安全性 → 仍要打开”处理；不要关闭系统安全保护。完整步骤见 [安装教程](https://github.com/TomyDeskLab/clash-meta-widget/blob/main/docs/安装教程.md)。
 
 升级时只保留应用程序目录中的一份 App；若已有桌面卡片显示链接无效，移除后重新添加一次。
 
@@ -23,6 +23,6 @@
 
 打包来源为本机已运行验证的构建 10 App；通过通用架构、签名完整性和 ZIP 解压一致性检查。已实点测试节点窗口的单节点测速、8 项批量测速和停止，确认代理开关、模式及节点选择不变。重复控制入口的回归测试也已通过。
 
-桌面卡片全部按钮、全新 Mac 首次安装、Intel 实机和旧系统尚未完成完整验收，因此仍是预览版。点击使用稳定本地随机凭据，不再声称防重放；不要分享私有快照或完整操作 URL。见 [安全说明](https://github.com/YL-SSSSu/clash-meta-widget/blob/main/SECURITY.md)。
+桌面卡片全部按钮、全新 Mac 首次安装、Intel 实机和旧系统尚未完成完整验收，因此仍是预览版。点击使用稳定本地随机凭据，不再声称防重放；不要分享私有快照或完整操作 URL。见 [安全说明](https://github.com/TomyDeskLab/clash-meta-widget/blob/main/SECURITY.md)。
 
 `SHA256SUMS.txt` 用于校验下载文件一致性，不等同于 Apple 公证。

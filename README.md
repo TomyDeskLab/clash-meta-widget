@@ -4,7 +4,7 @@
 
 为已经运行的 **ClashX Meta** 提供原生 WidgetKit 桌面小组件，支持手动节点管理和连接延迟测速。
 
-**[下载最新版安装包](https://github.com/YL-SSSSu/clash-meta-widget/releases/download/v1.0.0-preview.2/Clash-Meta-Widget-1.0-build10-macos-universal.zip)** · [安装教程](./docs/安装教程.md) · [发布页面](https://github.com/YL-SSSSu/clash-meta-widget/releases/tag/v1.0.0-preview.2)
+**[下载最新版安装包](https://github.com/TomyDeskLab/clash-meta-widget/releases/download/v1.0.0-preview.2/Clash-Meta-Widget-1.0-build10-macos-universal.zip)** · [安装教程](./docs/安装教程.md) · [发布页面](https://github.com/TomyDeskLab/clash-meta-widget/releases/tag/v1.0.0-preview.2)
 
 当前版本：**v1.0.0-preview.2 · 构建 10**。下载 ZIP 即可安装，**不需要 Xcode 或命令行开发工具**。
 
