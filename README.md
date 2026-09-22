@@ -1,10 +1,20 @@
 # Clash Meta Widget
 
+## ⬇️ 下载安装包
+
+[![下载最新版 macOS 安装包](https://img.shields.io/badge/%E7%82%B9%E5%87%BB%E4%B8%8B%E8%BD%BD-macOS_%E5%AE%89%E8%A3%85%E5%8C%85-0969da?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/TomyDeskLab/clash-meta-widget/releases/download/v1.0.0-preview.3/Clash-Meta-Widget-1.0-build11-macos-universal.zip)
+
+### **[📦 点这里直接下载 Clash Meta Widget（ZIP）](https://github.com/TomyDeskLab/clash-meta-widget/releases/download/v1.0.0-preview.3/Clash-Meta-Widget-1.0-build11-macos-universal.zip)**
+
+下载后解压，把 `Clash Meta Switch.app` 拖进“应用程序”即可。**不需要 Xcode，也不需要下载源码。** 需要帮助请看[图文安装教程](./docs/安装教程.md)。
+
+---
+
 **在 Mac 桌面上开关代理、切换节点和模式。**
 
 为已经运行的 **ClashX Meta** 提供原生 WidgetKit 桌面小组件，支持手动节点管理和连接延迟测速。
 
-**[下载最新版安装包](https://github.com/TomyDeskLab/clash-meta-widget/releases/download/v1.0.0-preview.3/Clash-Meta-Widget-1.0-build11-macos-universal.zip)** · [安装教程](./docs/安装教程.md) · [发布页面](https://github.com/TomyDeskLab/clash-meta-widget/releases/tag/v1.0.0-preview.3)
+[安装教程](./docs/安装教程.md) · [版本说明与校验文件](https://github.com/TomyDeskLab/clash-meta-widget/releases/tag/v1.0.0-preview.3)
 
 当前版本：**v1.0.0-preview.3 · 构建 11**。下载 ZIP 即可安装，**不需要 Xcode 或命令行开发工具**。
 
